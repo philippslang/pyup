@@ -1,16 +1,24 @@
 # screen and file output model
+import sys
+import numpy as np
+from itertools import cycle
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
+rcParams['font.family'] = 'sans-serif'
+rcParams['mathtext.default'] = 'regular'
+rcParams['font.sans-serif'] = ['Arial']
+rcParams['figure.figsize'] = 8,6
+rcParams['font.size'] = 16
+rcParams['lines.linewidth'] = 2
+rcParams['legend.loc'] = 'upper right'
 from matplotlib.patches import Ellipse
 from matplotlib.patches import Rectangle
-import numpy as np
-import math
-from itertools import cycle
-import sys
+
 
 def prompt_for_exit():
-    print ''
-    raw_input('done, hit key to exit...')
+    raw_input('\ndone, hit key to exit...')
     sys.exit()
+
 
 def screen_out(result_data):
     for i in range(len(result_data)):
@@ -31,7 +39,45 @@ def file_out( result_data, fname='keff_windows.txt' ):
         f.writelines(result_lines)
 
 
-def ellipse_plot(result_data,xmax,ymax,xmin=0.,ymin=0.):
+def fipy_scalar_field_plot( var, nx, ny, xmax, ymax, xmin=0., ymin=0., fname = '', log = False, label = '' ):
+    plt.clf()
+    x = np.linspace( xmin, xmax, nx )
+    y = np.linspace( ymin, ymax, ny )
+    X,Y = np.meshgrid(x,y)
+    var = np.reshape( np.array( var.value ), (ny,nx) )
+    if log:
+        var = np.log10(var)
+    plt.pcolor( X, Y, var )
+    cb = plt.colorbar()
+    cb.set_label(label)
+    plt.axis('equal')
+    plt.xlabel('Lateral Extension x [m]')
+    plt.ylabel('Lateral Extension y [m]')
+    plt.tight_layout()
+    if len(fname) != 0:
+        plt.savefig(fname)
+    plt.close()
+
+
+def ellipse_plot( result_data, xmax, ymax, xmin=0., ymin=0., fname = '' ):
+    """
+    Plots upscaled permeability tensors and corresponding windows on a scaled canvas.
+
+    Parameters
+    ----------
+    result_data: list, effk results
+        Return value in effk.effk, introduces tight coupling.
+    xmax, ymax: float
+        Upper limits of model coordinates.
+    xmin, ymin: float, optional
+        Lower limits of model coordinates, default to 0.
+    fname: string, optional
+        If provided, plot is saved under this filename, included extension.
+
+    Todo
+    ----
+    Release implicit dependency of effk through a results class.
+    """
     plt.clf()
     a = plt.subplot(111, aspect='equal')
 
@@ -51,14 +97,16 @@ def ellipse_plot(result_data,xmax,ymax,xmin=0.,ymin=0.):
         w_ell = h_ell*kratio
         wmax = np.argmax(eigw)
         vmax = np.array(eigv[:,wmax])
-        angledeg = math.acos(np.dot( vmax, [1.,0.]))*180/np.pi
+        angledeg = np.arccos(np.dot( vmax, [1.,0.]))*180/np.pi
         xcenter, ycenter = x0+(x1-x0)/2, y0+(y1-y0)/2
         a.scatter(xcenter,ycenter,marker='.',s=30,color='black')
         a.text( x0+text_offset, y0+text_offset, str(i), color=color )
         a.add_artist( Ellipse((xcenter, ycenter), h_ell, w_ell, angledeg, fill=False, color=color ) )    
         a.add_artist( Rectangle((x0,y0),(x1-x0),(y1-y0),fill=False,linestyle='dashed',color=color ) )
-
+    plt.xlabel('Lateral Extension x [m]')
+    plt.ylabel('Lateral Extension y [m]')
     plt.xlim(xmin, xmax)
     plt.ylim(ymin, ymax)
-    plt.savefig('keff_windows.png',dpi=300)
+    if len(fname) != 0:
+        plt.savefig(fname,dpi=300)
     plt.close()

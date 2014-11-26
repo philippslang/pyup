@@ -4,24 +4,46 @@ import effkio
 from scipy.stats import hmean
 
 
-def effk( kmatrix, dxy, windows, plot ):
+def effk(kmatrix, dxy, windows):
+    """
+    Computes the upscaled permeability tensor over a list of windows within the provided permeability map.
+
+    Parameters
+    ----------
+    kmatrix: ndarray
+        Two-dimensional array containing permeability [m2] values for each grid cell.
+    dxy: float
+        Uniform grid cell length in x- and y-direction [m].
+    windows: list
+        A list of tuples of the form ((x0,y0),(x1,y1)) in [m] that specify the windows permeability is upscaled over.
+
+    Returns
+    -------
+    Lx, Ly: float
+        Model length [m] in x- and y-direction.
+    result_data:
+        A list of [x0, y0, x1, y1, kface_w_mean, kface_w_hmean, kxx, kxy, kyy, kmin, kmax, eigw, eigv] per window.
+
+    Todo
+    ----
+		Outsource.
+    Results class.
+    """
     # generating grid
     dim = 2
     print 'generating grid, discretizing variables, setting up BC\'s...'
     ny, nx = kmatrix.shape
     Lx, Ly = nx*dxy, ny*dxy
-    mesh = Grid2D( dx=dxy, dy=dxy, nx=nx, ny=ny )
+    mesh = Grid2D(dx=dxy, dy=dxy, nx=nx, ny=ny)
 
     # dicretized varibles
-    p = [ CellVariable( name = "fluid pressure", mesh = mesh, value = 0. ) for i in range(dim) ]
-    k = CellVariable( name = "permeability", mesh = mesh, value = 0. )
-    k.setValue( np.ravel(kmatrix) )
+    p = [ CellVariable(name="fluid pressure", mesh=mesh, value=0.) for i in range(dim) ]
+    k = CellVariable(name="permeability", mesh=mesh, value=0.)
+    k.setValue(np.ravel(kmatrix))
     if k.min().value <= 0.:
-        raise ValueError( 'erroneous data:permeability between %.2e and %.2e [m2]' % (k.min().value, k.max().value) )
+        raise ValueError('erroneous data:permeability between %.2e and %.2e [m2]' % (k.min().value, k.max().value))
     kface = k.harmonicFaceValue # harmonic average at faces for FV diffusion solution
-    if plot:
-        viewer = Viewer(vars=k, datamin=k.min().value, datamax=k.max().value, log=True)
-        viewer.plot(filename='permeability.png')
+    effkio.fipy_scalar_field_plot( k, nx, ny, Lx, Ly, fname = 'permeability.png', log = 1, label = r'Permeability [log$_{10}$(m$^2$)]' )
 
     # BC's in order x-I[0],y-II[1]
     fin, fout = [mesh.facesLeft,mesh.facesTop], [mesh.facesRight,mesh.facesBottom]
@@ -37,10 +59,10 @@ def effk( kmatrix, dxy, windows, plot ):
         DiffusionTerm(kface).solve(var=p[i])
         pgrad.append(p[i].faceGrad)
         vel.append(pgrad[i]*kface)
+        print '\tplotting...'
         fname = str('pressure_' + str(i) + '.png')
-        if plot:
-            viewer = Viewer(vars=p[i], datamin=pout, datamax=pin)
-            viewer.plot(filename=fname)
+        effkio.fipy_scalar_field_plot( p[i], nx, ny, Lx, Ly, fname = fname, label = 'Pressure [Pa]' )
+
 
     # evaluating keff over windows
     print 'evaluating keff over windows...'
