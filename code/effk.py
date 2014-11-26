@@ -43,6 +43,7 @@ def effk(kmatrix, dxy, windows):
     if k.min().value <= 0.:
         raise ValueError('erroneous data:permeability between %.2e and %.2e [m2]' % (k.min().value, k.max().value))
     kface = k.harmonicFaceValue # harmonic average at faces for FV diffusion solution
+    print '\tplotting...'
     effkio.fipy_scalar_field_plot( k, nx, ny, Lx, Ly, fname = 'permeability.png', log = 1, label = r'Permeability [log$_{10}$(m$^2$)]' )
 
     # BC's in order x-I[0],y-II[1]
